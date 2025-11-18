@@ -1,3 +1,5 @@
+#ifndef BACKTRACE_H
+#define BACKTRACE_H
 #include <execinfo.h>
 #include <stdlib.h>
 
@@ -29,3 +31,4 @@ inline std::ostream &operator<<(std::ostream &os, const BackTrace &bt) {
   bt.print(os);
   return os;
 }
+#endif

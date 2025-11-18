@@ -1,3 +1,5 @@
+#ifndef BACKTRACE_CC
+#define BACKTRACE_CC
 #include "backtrace.h"
 #include <cstddef>
 #include <cxxabi.h>
@@ -41,3 +43,4 @@ std::string BackTrace::demangle(const char *name) {
     return name;
   }
 }
+#endif
