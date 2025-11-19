@@ -71,6 +71,9 @@ public:
   // mutex concept is non-movable
   mutex_debug_impl(mutex_debug_impl &&) = delete;
   mutex_debug_impl &operator=(mutex_debug_impl &&) = delete;
+
+  std::string get_name() const { return lock_name; }
+
   void lock_impl() {
     int r = pthread_mutex_lock(&m);
     if (unlikely(r == EPERM || r == EDEADLK || r == EBUSY)) {

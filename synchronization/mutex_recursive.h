@@ -33,6 +33,11 @@ public:
       throw std::system_error(r, std::generic_category());
     _post_lock();
   }
+  mutex_recursive(const mutex_recursive &) = delete;
+  mutex_recursive &operator=(const mutex_recursive &) = delete;
+
+  mutex_recursive(mutex_recursive &&) = delete;
+  mutex_recursive &operator=(mutex_recursive &&) = delete;
 
   void unlock() {
     _pre_unlock();

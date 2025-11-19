@@ -24,6 +24,11 @@ add_executable(test_mutex
     synchronization/backtrace.cc
 )
 
+# Add -rdynamic flag to export symbols for backtrace
+set_target_properties(test_mutex PROPERTIES
+    LINK_FLAGS "-rdynamic"
+)
+
 # Set include directories for all targets
 include_directories(${CMAKE_SOURCE_DIR})
 

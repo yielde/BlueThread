@@ -1,3 +1,5 @@
+#ifndef UTILS_H
+#define UTILS_H
 #include "backtrace.h"
 #include <iostream>
 
@@ -17,3 +19,5 @@ int lockdep_will_lock(const std::string &name, int id);
 int lockdep_locked(const std::string &name, int id);
 void lockdep_unregister(int id);
 int lockdep_will_unlock(const std::string &name, int id);
+
+#endif

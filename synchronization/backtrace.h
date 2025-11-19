@@ -8,7 +8,7 @@
 // store the backtrace of the current thread
 class BackTrace {
 public:
-  const static int max_depth = 10;
+  const static int max_depth = 30;
   void *array[max_depth]{};
   size_t size;
   char **strings;

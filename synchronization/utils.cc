@@ -121,7 +121,6 @@ static bool does_follow(int a, int b) {
       lock_tree_backtrace[a][b]->print(os);
     }
     os << std::endl;
-    os << std::endl;
     return true;
   }
 
@@ -177,16 +176,20 @@ int lockdep_will_lock(const std::string &name, int id) {
     } else if (!(lock_tree[p->first][id / 8] & (1 << (id % 8)))) {
       // add new lockdep
       std::ostream &os = std::cout;
-      if (does_follow(p->first, id)) {
-        // will cause deadlock
-        auto bt = new BackTrace(0);
+      // Check for potential deadlock: if there's a path from 'id' to
+      // 'p->first', then adding 'p->first' -> 'id' would create a cycle
+      if (does_follow(id, p->first)) {
+        // will cause deadlock - there's already a path from id to p->first,
+        // so adding p->first -> id creates a cycle
+
         os << "new dependency "
            << "【" << p->first << ": " << id_to_name_map[p->first] << "】"
            << " -> "
            << "【" << id << ": " << id_to_name_map[id] << "】"
-           << "will cause critical dependency";
-        bt->print(os);
+           << " will cause deadlock (cycle detected)";
         os << std::endl;
+        auto bt = new BackTrace(0);
+        bt->print(os);
         std::cout << "thread " << tid << " hold locks: " << std::endl;
         for (auto q = lockid_backtrace_map.begin();
              q != lockid_backtrace_map.end(); q++) {
@@ -200,7 +203,6 @@ int lockdep_will_lock(const std::string &name, int id) {
         // std::cout << std::endl;
         abort();
       } else {
-
         BackTrace *bt = new BackTrace(0);
         lock_tree[p->first][id / 8] |= (1 << (id % 8));
         lock_tree_backtrace[p->first][id] = bt;
