@@ -23,7 +23,7 @@ std::string test_strings() {
   return b;
 }
 
-int main(){
+int main() {
   // test_assert2();
   // test_assert1();
   test_strings();

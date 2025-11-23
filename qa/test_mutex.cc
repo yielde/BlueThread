@@ -8,12 +8,12 @@
 
 using namespace std;
 
-static void test_lock(){
-    BlueMutex mutex("test_mutex", true);
-    mutex.lock();
-    cout << "locked" << endl;
-    mutex.unlock();
-    cout << "unlocked" << endl;
+static void test_lock() {
+  BlueMutex mutex("test_mutex", true);
+  mutex.lock();
+  cout << "locked" << endl;
+  mutex.unlock();
+  cout << "unlocked" << endl;
 }
 
 static void test_lock_recursive(mutex_recursive &mutex_recursive) {
