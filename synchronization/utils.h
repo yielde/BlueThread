@@ -1,6 +1,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 #include "backtrace.h"
+#include <chrono>
 #include <iostream>
 
 #define unlikely(x) __builtin_expect((x), 0)
@@ -20,4 +21,17 @@ int lockdep_locked(const std::string &name, int id);
 void lockdep_unregister(int id);
 int lockdep_will_unlock(const std::string &name, int id);
 
+/* used by conditon_variable */
+template <typename Clock, typename Duration>
+timespec
+to_timespec(const std::chrono::time_point<Clock, Duration> &time_point) {
+  timespec ts;
+  auto epoch = time_point.time_since_epoch();
+  auto seconds = std::chrono::duration_cast<std::chrono::seconds>(epoch);
+  auto nanoseconds =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(epoch - seconds);
+  ts.tv_sec = seconds.count();
+  ts.tv_nsec = nanoseconds.count();
+  return ts;
+}
 #endif

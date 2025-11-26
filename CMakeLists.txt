@@ -24,6 +24,16 @@ add_executable(test_mutex
     synchronization/backtrace.cc
 )
 
+add_executable(test_cond 
+    qa/test_cond.cc
+    synchronization/mutex.cc
+    synchronization/utils.cc
+    synchronization/backtrace.cc
+    synchronization/condition_variable.cc
+    thread/thread.cc
+    thread/utils.cc
+)
+
 # Add -rdynamic flag to export symbols for backtrace
 set_target_properties(test_mutex PROPERTIES
     LINK_FLAGS "-rdynamic"

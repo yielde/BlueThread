@@ -10,6 +10,8 @@ Implement using pthread_mutex_t(PTHREAD_MUTEX_ERRORCHECK).
 Implement using pthread_mutex_t(PTHREAD_MUTEX_RECURSIVE).
 
 ## condition_variable
+Rely on mutex
+
 
 
 # concurrency

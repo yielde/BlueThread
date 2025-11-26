@@ -1,3 +1,5 @@
+#pragma once
+
 #include "utils.h"
 #include <asm-generic/errno.h>
 #include <atomic>
@@ -141,6 +143,8 @@ public:
       _will_unlock();
     unlock_impl();
   }
+
+  pthread_mutex_t *native_handle() { return &m; }
 };
 
 using BlueMutex = mutex_debug_impl;
