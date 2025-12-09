@@ -15,6 +15,13 @@
     }                                                                          \
   } while (0)
 
+#define ABORT(msg)                                                             \
+  do {                                                                         \
+    std::cerr << "Abort: " << msg << " at " << __FILE__ << ":" << __LINE__     \
+              << ":" << __func__ << std::endl;                                 \
+    abort();                                                                   \
+  } while (0)
+
 int lockdep_register(const std::string &name);
 int lockdep_will_lock(const std::string &name, int id);
 int lockdep_locked(const std::string &name, int id);

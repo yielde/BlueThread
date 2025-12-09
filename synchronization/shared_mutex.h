@@ -23,9 +23,11 @@ public:
 
   void lock();
   void unlock();
-  bool is_wlocked();
+  bool is_wlocked() const { return locked_count > 0; }
 
   void lock_shared();
   void unlock_shared();
-  bool is_rlocked();
+  bool is_rlocked() const { return read_locked_count > 0; }
+
+  bool is_locked() const { return read_locked_count > 0 || locked_count > 0; }
 };

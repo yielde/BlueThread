@@ -13,7 +13,7 @@ endif()
 
 find_package(Threads REQUIRED)
 
-add_executable(BlueThread
+add_executable(test
     test.cc
 )
 

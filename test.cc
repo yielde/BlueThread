@@ -1,31 +1,33 @@
-#include "synchronization/utils.h"
+#include <algorithm>
 #include <iostream>
-#include <mutex>
 #include <pthread.h>
-#include <thread>
+#include <vector>
+
 using namespace std;
 
-void test_thread_self() {
-  pthread_t tid1 = pthread_self();
-  cout << "thread id: " << tid1 << endl;
-  thread::id tid2 = this_thread::get_id();
-  cout << "thread id: " << tid2 << endl;
-}
-
-void test_array_init() {}
-
-void test_assert1() { ASSERT(1 == 2); }
-std::string test_strings() {
-  const char *name = "test_strings";
-  std::string b{name};
-  b += "```";
-  cout << b << endl;
-  return b;
-}
-
 int main() {
-  // test_assert2();
-  // test_assert1();
-  test_strings();
+  std::vector<int> v = {1, 2, 3, 4, 5};
+  auto it = std::find(v.begin(), v.end(), 3);
+  std::cout << v.size() << endl;
+  std::cout << v.capacity() << endl;
+  if (it != v.end()) {
+    v.erase(it);
+    std::cout << "after erase: ";
+    for (auto &i : v) {
+      std::cout << i << " ";
+    }
+    std::cout << endl;
+
+    v.erase(it);
+
+    for (auto &i : v) {
+      std::cout << i << " ";
+    }
+    std::cout << endl;
+  }
+  std::cout << v.size() << endl;
+
+  std::cout << v.capacity() << endl;
+
   return 0;
 }

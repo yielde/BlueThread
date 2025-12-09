@@ -11,7 +11,7 @@ private:
   pthread_cond_t cond;
 
 public:
-  condition_variable(BlueMutex *mutex) : waiter_mutex(mutex) {
+  condition_variable() : waiter_mutex{nullptr} {
     int r = pthread_cond_init(&cond, nullptr);
     if (r) {
       throw std::system_error(r, std::generic_category());
@@ -43,7 +43,7 @@ public:
 
   template <typename Clock, typename Duration>
   std::cv_status wait_for(std::unique_lock<BlueMutex> &lock,
-                          std::chrono::time_point<Clock, Duration> &awhile) {
+                          std::chrono::duration<Clock, Duration> &awhile) {
     auto when = Clock::now();
     when += awhile;
     return _wait_until(lock.mutex(), when);
@@ -51,7 +51,7 @@ public:
 
   template <typename Clock, typename Duration, typename Predicate>
   bool wait_for(std::unique_lock<BlueMutex> &lock,
-                std::chrono::time_point<Clock, Duration> &awhile,
+                std::chrono::duration<Clock, Duration> &awhile,
                 Predicate pred) {
     auto when = Clock::now();
     when += awhile;
@@ -66,3 +66,5 @@ public:
   void notify_one();
   void notify_all();
 };
+
+using BlueConditionVariable = condition_variable;
