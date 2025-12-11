@@ -3,6 +3,7 @@
 #include <pthread.h>
 
 #include <ctime>
+#include <iostream>
 
 #include "synchronization/utils.h"
 
@@ -47,6 +48,7 @@ condition_variable::_wait_until(
   ASSERT(waiter_mutex->is_locked());
   waiter_mutex->_pre_unlock();
   timespec ts = to_timespec<std::chrono::steady_clock>(abs_time);
+  std::cout << "abs time: " << ts.tv_sec << "." << ts.tv_nsec << std::endl;
   int r = pthread_cond_timedwait(&cond, waiter_mutex->native_handle(), &ts);
   waiter_mutex->_post_lock();
   switch (r) {

@@ -96,7 +96,7 @@ public:
   template <typename T, typename U = T>
   class WorkQueueVal : public WorkQueue_ {
   private:
-    BlueMutex _lock = BlueMutex(name + "WorkQueueVal::lock", true);
+    BlueMutex _lock = BlueMutex(name + " WorkQueueVal::lock", false);
     ThreadPool* pool;
     std::list<U> to_process;
     std::list<U> to_finish;

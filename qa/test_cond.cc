@@ -34,7 +34,7 @@ int
 main()
 {
   BlueMutex mutex("test_cond", true);
-  condition_variable cond(&mutex);
+  BlueConditionVariable cond;
   int i = 0;
   TestThread thread(i, cond, mutex);
   thread.create("test_thread");

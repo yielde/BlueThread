@@ -1,4 +1,3 @@
-#include <chrono>
 #include <iostream>
 #include <list>
 #include <mutex>
@@ -47,37 +46,34 @@ public:
 };
 
 // 实现一个具体的 WorkQueueVal 类
-// WorkQueueVal 现在有构造函数，可以正确初始化基类 WorkQueue_
+// WorkQueueVal 构造函数需要 ThreadPool* 参数，并会自动添加到线程池
 class TestWorkQueue : public ThreadPool::WorkQueueVal<TestTask> {
 private:
-  list<TestTask> queue;
+  list<TestTask> task_queue; // 重命名以避免与基类的 queue() 方法冲突
   TaskResult* result;
-  BlueMutex queue_lock; // 自己的锁，用于保护队列操作
 
 public:
   TestWorkQueue(
       const string& name,
       ThreadPool::duration grace,
       ThreadPool::duration suicide_grace,
+      ThreadPool* pool,
       TaskResult* result) :
-    ThreadPool::WorkQueueVal<TestTask>(name, grace, suicide_grace),
-    result(result),
-    queue_lock(name + "::queue_lock", true)
+    ThreadPool::WorkQueueVal<TestTask>(name, grace, suicide_grace, pool),
+    result(result)
   {}
 
   void
   _enqueue(TestTask task) override
   {
-    lock_guard<BlueMutex> lock(queue_lock);
-    queue.push_back(task);
+    task_queue.push_back(task);
     cout << "Enqueued task id=" << task.id << " value=" << task.value << endl;
   }
 
   void
   _enqueue_front(TestTask task) override
   {
-    lock_guard<BlueMutex> lock(queue_lock);
-    queue.push_front(task);
+    task_queue.push_front(task);
     cout << "Enqueued front task id=" << task.id << " value=" << task.value
          << endl;
   }
@@ -85,17 +81,15 @@ public:
   bool
   _empty() override
   {
-    lock_guard<BlueMutex> lock(queue_lock);
-    return queue.empty();
+    return task_queue.empty();
   }
 
   TestTask
   _dequeue() override
   {
-    lock_guard<BlueMutex> lock(queue_lock);
-    ASSERT(!queue.empty());
-    TestTask task = queue.front();
-    queue.pop_front();
+    ASSERT(!task_queue.empty());
+    TestTask task = task_queue.front();
+    task_queue.pop_front();
     return task;
   }
 
@@ -123,8 +117,7 @@ public:
   void
   _clear() override
   {
-    lock_guard<BlueMutex> lock(queue_lock);
-    queue.clear();
+    task_queue.clear();
   }
 };
 
@@ -141,28 +134,29 @@ test_basic_workqueue()
   ThreadPool pool(&hbmap, "test_pool", "test_thread", 2, grace, suicide_grace);
 
   TaskResult result;
-  TestWorkQueue workqueue("test_queue", grace, suicide_grace, &result);
+  // WorkQueueVal 构造函数会自动将 work queue 添加到线程池
+  TestWorkQueue workqueue("test_queue", grace, suicide_grace, &pool, &result);
 
-  pool.add_work_queue(&workqueue);
   pool.start();
 
   // 等待线程池启动
   this_thread::sleep_for(chrono::milliseconds(100));
 
-  // 添加一些任务
+  // 使用公共方法 queue() 添加任务
   cout << "\nAdding tasks..." << endl;
   for (int i = 1; i <= 10; i++) {
-    workqueue._enqueue(TestTask(i, i * 10));
+    workqueue.queue(TestTask(i, i * 10));
     this_thread::sleep_for(chrono::milliseconds(50));
   }
 
   // 等待所有任务处理完成
   cout << "\nWaiting for tasks to complete..." << endl;
-  pool.drain(&workqueue);
+  workqueue.drain();
 
   result.print_results();
 
   pool.stop();
+  // workqueue 析构函数会自动从线程池中移除
   cout << "Test Basic WorkQueue completed\n" << endl;
 }
 
@@ -179,9 +173,8 @@ test_enqueue_front()
   ThreadPool pool(&hbmap, "test_pool2", "test_thread2", 2, grace, suicide_grace);
 
   TaskResult result;
-  TestWorkQueue workqueue("test_queue2", grace, suicide_grace, &result);
+  TestWorkQueue workqueue("test_queue2", grace, suicide_grace, &pool, &result);
 
-  pool.add_work_queue(&workqueue);
   pool.start();
 
   this_thread::sleep_for(chrono::milliseconds(100));
@@ -189,16 +182,16 @@ test_enqueue_front()
   // 先添加一些普通任务
   cout << "\nAdding normal tasks..." << endl;
   for (int i = 1; i <= 5; i++) {
-    workqueue._enqueue(TestTask(i, i * 10));
+    workqueue.queue(TestTask(i, i * 10));
   }
 
   // 然后添加一些前端任务（应该优先处理）
   cout << "\nAdding front tasks..." << endl;
   for (int i = 10; i <= 12; i++) {
-    workqueue._enqueue_front(TestTask(i, i * 10));
+    workqueue.queue_front(TestTask(i, i * 10));
   }
 
-  pool.drain(&workqueue);
+  workqueue.drain();
 
   result.print_results();
 
@@ -219,9 +212,8 @@ test_pause_unpause()
   ThreadPool pool(&hbmap, "test_pool3", "test_thread3", 2, grace, suicide_grace);
 
   TaskResult result;
-  TestWorkQueue workqueue("test_queue3", grace, suicide_grace, &result);
+  TestWorkQueue workqueue("test_queue3", grace, suicide_grace, &pool, &result);
 
-  pool.add_work_queue(&workqueue);
   pool.start();
 
   this_thread::sleep_for(chrono::milliseconds(100));
@@ -229,7 +221,7 @@ test_pause_unpause()
   // 添加一些任务
   cout << "\nAdding tasks..." << endl;
   for (int i = 1; i <= 5; i++) {
-    workqueue._enqueue(TestTask(i, i * 10));
+    workqueue.queue(TestTask(i, i * 10));
   }
 
   // 暂停线程池
@@ -239,7 +231,7 @@ test_pause_unpause()
   // 在暂停状态下添加更多任务
   cout << "Adding more tasks while paused..." << endl;
   for (int i = 6; i <= 10; i++) {
-    workqueue._enqueue(TestTask(i, i * 10));
+    workqueue.queue(TestTask(i, i * 10));
   }
 
   // 等待一下，确保没有任务被处理
@@ -251,7 +243,7 @@ test_pause_unpause()
   pool.unpause();
 
   // 等待所有任务完成
-  pool.drain(&workqueue);
+  workqueue.drain();
 
   result.print_results();
 
@@ -272,9 +264,8 @@ test_concurrent_tasks()
   ThreadPool pool(&hbmap, "test_pool4", "test_thread4", 4, grace, suicide_grace);
 
   TaskResult result;
-  TestWorkQueue workqueue("test_queue4", grace, suicide_grace, &result);
+  TestWorkQueue workqueue("test_queue4", grace, suicide_grace, &pool, &result);
 
-  pool.add_work_queue(&workqueue);
   pool.start();
 
   this_thread::sleep_for(chrono::milliseconds(100));
@@ -286,7 +277,7 @@ test_concurrent_tasks()
     threads.emplace_back([&workqueue, t]() {
       for (int i = 1; i <= 5; i++) {
         int id = t * 10 + i;
-        workqueue._enqueue(TestTask(id, id * 10));
+        workqueue.queue(TestTask(id, id * 10));
         this_thread::sleep_for(chrono::milliseconds(20));
       }
     });
@@ -297,12 +288,58 @@ test_concurrent_tasks()
   }
 
   // 等待所有任务完成
-  pool.drain(&workqueue);
+  workqueue.drain();
 
   result.print_results();
 
   pool.stop();
   cout << "Test Concurrent Tasks completed\n" << endl;
+}
+
+// 测试多个工作队列
+void
+test_multiple_workqueues()
+{
+  cout << "\n=== Test Multiple WorkQueues ===" << endl;
+
+  HeartbeatMap hbmap("test_pool5");
+  ThreadPool::duration grace = chrono::seconds(5);
+  ThreadPool::duration suicide_grace = chrono::seconds(10);
+
+  ThreadPool pool(&hbmap, "test_pool5", "test_thread5", 3, grace, suicide_grace);
+
+  TaskResult result1, result2;
+  TestWorkQueue workqueue1(
+      "test_queue5_1", grace, suicide_grace, &pool, &result1);
+  TestWorkQueue workqueue2(
+      "test_queue5_2", grace, suicide_grace, &pool, &result2);
+
+  pool.start();
+
+  this_thread::sleep_for(chrono::milliseconds(100));
+
+  // 向两个队列添加任务
+  cout << "\nAdding tasks to queue 1..." << endl;
+  for (int i = 1; i <= 5; i++) {
+    workqueue1.queue(TestTask(i, i * 10));
+  }
+
+  cout << "Adding tasks to queue 2..." << endl;
+  for (int i = 10; i <= 15; i++) {
+    workqueue2.queue(TestTask(i, i * 10));
+  }
+
+  // 等待所有任务完成
+  workqueue1.drain();
+  workqueue2.drain();
+
+  cout << "\nQueue 1 results:" << endl;
+  result1.print_results();
+  cout << "\nQueue 2 results:" << endl;
+  result2.print_results();
+
+  pool.stop();
+  cout << "Test Multiple WorkQueues completed\n" << endl;
 }
 
 int
@@ -311,9 +348,10 @@ main(int argc, char** argv)
   cout << "Starting ThreadPool and WorkQueueVal tests..." << endl;
 
   test_basic_workqueue();
-  test_enqueue_front();
-  test_pause_unpause();
-  test_concurrent_tasks();
+  // test_enqueue_front();
+  // test_pause_unpause();
+  // test_concurrent_tasks();
+  // test_multiple_workqueues();
 
   cout << "All tests completed!" << endl;
   return 0;

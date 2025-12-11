@@ -15,7 +15,11 @@ private:
 public:
   condition_variable() : waiter_mutex{nullptr}
   {
-    int r = pthread_cond_init(&cond, nullptr);
+    pthread_condattr_t attr;
+    pthread_condattr_init(&attr);
+    pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+    int r = pthread_cond_init(&cond, &attr);
+    pthread_condattr_destroy(&attr);
     if (r) {
       throw std::system_error(r, std::generic_category());
     }
@@ -52,26 +56,24 @@ public:
     return _wait_until(lock.mutex(), when);
   }
 
-  template <typename Clock, typename Duration>
+  template <typename Rep, typename Period>
   std::cv_status
   wait_for(
       std::unique_lock<BlueMutex>& lock,
-      std::chrono::duration<Clock, Duration>& awhile)
+      std::chrono::duration<Rep, Period>& awhile)
   {
-    auto when = Clock::now();
-    when += awhile;
+    auto when = std::chrono::steady_clock::now() + awhile;
     return _wait_until(lock.mutex(), when);
   }
 
-  template <typename Clock, typename Duration, typename Predicate>
+  template <typename Rep, typename Period, typename Predicate>
   bool
   wait_for(
       std::unique_lock<BlueMutex>& lock,
-      std::chrono::duration<Clock, Duration>& awhile,
+      std::chrono::duration<Rep, Period>& awhile,
       Predicate pred)
   {
-    auto when = Clock::now();
-    when += awhile;
+    auto when = std::chrono::steady_clock::now() + awhile;
     while (!pred()) {
       if (_wait_until(lock.mutex(), when) == std::cv_status::timeout) {
         return pred();

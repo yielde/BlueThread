@@ -17,14 +17,14 @@ add_executable(test
     test.cc
 )
 
-add_executable(test_mutex 
+add_executable(test_mutex
     qa/test_mutex.cc
     synchronization/mutex.cc
     synchronization/utils.cc
     synchronization/backtrace.cc
 )
 
-add_executable(test_cond 
+add_executable(test_cond
     qa/test_cond.cc
     synchronization/mutex.cc
     synchronization/utils.cc
@@ -32,6 +32,19 @@ add_executable(test_cond
     synchronization/condition_variable.cc
     thread/thread.cc
     thread/utils.cc
+)
+
+add_executable(test_threadpool
+    qa/test_threadpool.cc
+    thread/threadpool.cc
+    thread/heartbeat.cc
+    thread/thread.cc
+    thread/utils.cc
+    synchronization/mutex.cc
+    synchronization/utils.cc
+    synchronization/backtrace.cc
+    synchronization/shared_mutex.cc
+    synchronization/condition_variable.cc
 )
 
 # Add -rdynamic flag to export symbols for backtrace
@@ -44,5 +57,3 @@ include_directories(${CMAKE_SOURCE_DIR})
 
 # Link Threads library to all targets
 link_libraries(Threads::Threads)
-
-

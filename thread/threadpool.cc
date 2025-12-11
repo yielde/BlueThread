@@ -23,7 +23,7 @@ ThreadPool::ThreadPool(
   name(nm),
   thread_name(tn),
   lock_name(nm + "::lock"),
-  _lock(BlueMutex(lock_name, true)),
+  _lock(BlueMutex(lock_name, false)),
   _stop(false),
   _pause(0),
   _draining(0),
