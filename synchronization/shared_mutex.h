@@ -1,9 +1,11 @@
 #pragma once
 
-#include "mutex.h"
-#include <atomic>
 #include <pthread.h>
+
+#include <atomic>
 #include <string>
+
+#include "mutex.h"
 
 class shared_mutex_debug : public mutex_debug_base {
 private:
@@ -17,17 +19,33 @@ private:
   void _post_lock_shared();
 
 public:
-  shared_mutex_debug(std::string name, bool lockdep = false,
-                     bool prioritize_write = false);
+  shared_mutex_debug(
+      std::string name,
+      bool lockdep = false,
+      bool prioritize_write = false);
   ~shared_mutex_debug();
 
   void lock();
   void unlock();
-  bool is_wlocked() const { return locked_count > 0; }
+
+  bool
+  is_wlocked() const
+  {
+    return locked_count > 0;
+  }
 
   void lock_shared();
   void unlock_shared();
-  bool is_rlocked() const { return read_locked_count > 0; }
 
-  bool is_locked() const { return read_locked_count > 0 || locked_count > 0; }
+  bool
+  is_rlocked() const
+  {
+    return read_locked_count > 0;
+  }
+
+  bool
+  is_locked() const
+  {
+    return read_locked_count > 0 || locked_count > 0;
+  }
 };

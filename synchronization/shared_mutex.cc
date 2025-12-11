@@ -1,15 +1,20 @@
 #include "shared_mutex.h"
-#include "utils.h"
+
 #include <pthread.h>
 
-shared_mutex_debug::shared_mutex_debug(std::string name, bool lockdep,
-                                       bool prioritize_write)
-    : mutex_debug_base(std::move(name), lockdep) {
+#include "utils.h"
+
+shared_mutex_debug::shared_mutex_debug(
+    std::string name,
+    bool lockdep,
+    bool prioritize_write) :
+  mutex_debug_base(std::move(name), lockdep)
+{
   if (prioritize_write) {
     pthread_rwlockattr_t attr;
     pthread_rwlockattr_init(&attr);
-    pthread_rwlockattr_setkind_np(&attr,
-                                  PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
+    pthread_rwlockattr_setkind_np(
+        &attr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
     pthread_rwlock_init(&rwlock, &attr);
     pthread_rwlockattr_destroy(&attr);
   } else {
@@ -19,13 +24,14 @@ shared_mutex_debug::shared_mutex_debug(std::string name, bool lockdep,
 
 shared_mutex_debug::~shared_mutex_debug() { pthread_rwlock_destroy(&rwlock); }
 
-void shared_mutex_debug::lock() {
+void
+shared_mutex_debug::lock()
+{
   if (lockdep) {
     _will_lock();
   }
   if (int r = pthread_rwlock_wrlock(&rwlock); r != 0) {
-    throw std::system_error(r, std::generic_category(),
-                            "pthread_rwlock_wrlock");
+    throw std::system_error(r, std::generic_category(), "pthread_rwlock_wrlock");
   }
   if (lockdep) {
     _locked();
@@ -33,7 +39,9 @@ void shared_mutex_debug::lock() {
   _post_lock();
 }
 
-void shared_mutex_debug::unlock() {
+void
+shared_mutex_debug::unlock()
+{
   _pre_unlock();
   if (lockdep) {
     _will_unlock();
@@ -43,7 +51,9 @@ void shared_mutex_debug::unlock() {
   }
 }
 
-void shared_mutex_debug::lock_shared() {
+void
+shared_mutex_debug::lock_shared()
+{
   if (lockdep) {
     _will_lock();
   }
@@ -56,7 +66,9 @@ void shared_mutex_debug::lock_shared() {
   _post_lock_shared();
 }
 
-void shared_mutex_debug::unlock_shared() {
+void
+shared_mutex_debug::unlock_shared()
+{
   _pre_unlock_shared();
   if (lockdep) {
     _will_unlock();
@@ -66,7 +78,9 @@ void shared_mutex_debug::unlock_shared() {
   }
 }
 
-void shared_mutex_debug::_pre_unlock() {
+void
+shared_mutex_debug::_pre_unlock()
+{
   if (lockdep) {
     ASSERT(locked_count > 0);
     --locked_count;
@@ -75,7 +89,9 @@ void shared_mutex_debug::_pre_unlock() {
   }
 }
 
-void shared_mutex_debug::_post_lock() {
+void
+shared_mutex_debug::_post_lock()
+{
   if (lockdep) {
     ASSERT(locked_count == 0);
     ++locked_count;
@@ -83,14 +99,18 @@ void shared_mutex_debug::_post_lock() {
   }
 }
 
-void shared_mutex_debug::_pre_unlock_shared() {
+void
+shared_mutex_debug::_pre_unlock_shared()
+{
   if (lockdep) {
     ASSERT(read_locked_count > 0);
     --read_locked_count;
   }
 }
 
-void shared_mutex_debug::_post_lock_shared() {
+void
+shared_mutex_debug::_post_lock_shared()
+{
   if (lockdep) {
     ++read_locked_count;
   }

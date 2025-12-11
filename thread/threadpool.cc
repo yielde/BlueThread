@@ -1,37 +1,64 @@
 #include "threadpool.h"
-#include "synchronization/mutex.h"
-#include "synchronization/utils.h"
-#include "thread/heartbeat.h"
+
+#include <pthread.h>
+
 #include <chrono>
 #include <iostream>
 #include <mutex>
 #include <ostream>
-#include <pthread.h>
 #include <sstream>
 
-ThreadPool::ThreadPool(HeartbeatMap *hbmap, std::string nm, std::string tn,
-                       int n, duration grace, duration suicide_grace)
-    : hbmap(hbmap), name(nm), thread_name(tn), lock_name(nm + "::lock"),
-      _lock(BlueMutex(lock_name, true)), _stop(false), _pause(0), _draining(0),
-      _num_threads(n), processing(0), tp_grace(grace),
-      tp_suicide_grace(suicide_grace) {}
+#include "synchronization/mutex.h"
+#include "synchronization/utils.h"
+#include "thread/heartbeat.h"
+
+ThreadPool::ThreadPool(
+    HeartbeatMap* hbmap,
+    std::string nm,
+    std::string tn,
+    int n,
+    duration grace,
+    duration suicide_grace) :
+  hbmap(hbmap),
+  name(nm),
+  thread_name(tn),
+  lock_name(nm + "::lock"),
+  _lock(BlueMutex(lock_name, true)),
+  _stop(false),
+  _pause(0),
+  _draining(0),
+  _num_threads(n),
+  processing(0),
+  tp_grace(grace),
+  tp_suicide_grace(suicide_grace)
+{}
 
 ThreadPool::~ThreadPool() {}
 
-void ThreadPool::TPHandle::reset_tp_timeout() {
+void
+ThreadPool::TPHandle::reset_tp_timeout()
+{
   hbmap->reset_timeout(hb, grace, suicide_grace);
 }
 
-void ThreadPool::TPHandle::suspent_tp_timeout() { hbmap->clear_timeout(hb); }
+void
+ThreadPool::TPHandle::suspent_tp_timeout()
+{
+  hbmap->clear_timeout(hb);
+}
 
-void ThreadPool::start() {
+void
+ThreadPool::start()
+{
   std::cout << "ThreadPool::start..." << std::endl;
   _lock.lock();
   start_threads();
   _lock.unlock();
 }
 
-void ThreadPool::stop() {
+void
+ThreadPool::stop()
+{
   std::cout << "ThreadPool::stop..." << std::endl;
   _lock.lock();
   _stop = true;
@@ -53,10 +80,12 @@ void ThreadPool::stop() {
   std::cout << "ThreadPool::stop stoped!" << std::endl;
 }
 
-void ThreadPool::start_threads() {
+void
+ThreadPool::start_threads()
+{
   ASSERT(_lock.is_locked());
   while (_threads.size() < _num_threads) {
-    WorkThread *wt = new WorkThread(this);
+    WorkThread* wt = new WorkThread(this);
     _threads.insert(wt);
     wt->create(thread_name.c_str());
     std::cout << "ThreadPool::start_threads: created thread: "
@@ -64,7 +93,9 @@ void ThreadPool::start_threads() {
   }
 }
 
-void ThreadPool::join_old_threads() {
+void
+ThreadPool::join_old_threads()
+{
   ASSERT(_lock.is_locked());
   while (!_old_threads.empty()) {
     _old_threads.front()->join();
@@ -73,12 +104,16 @@ void ThreadPool::join_old_threads() {
   }
 }
 
-void ThreadPool::add_work_queue(WorkQueue_ *wq) {
+void
+ThreadPool::add_work_queue(WorkQueue_* wq)
+{
   std::lock_guard<BlueMutex> l(_lock);
   work_queues.push_back(wq);
 }
 
-void ThreadPool::remove_work_queue(WorkQueue_ *wq) {
+void
+ThreadPool::remove_work_queue(WorkQueue_* wq)
+{
   std::lock_guard<BlueMutex> l(_lock);
   auto it = std::find(work_queues.begin(), work_queues.end(), wq);
   if (it != work_queues.end()) {
@@ -86,7 +121,9 @@ void ThreadPool::remove_work_queue(WorkQueue_ *wq) {
   }
 }
 
-void ThreadPool::pause() {
+void
+ThreadPool::pause()
+{
   std::cout << "pausing" << std::endl;
   std::unique_lock<BlueMutex> ul(_lock);
   _pause++;
@@ -96,14 +133,18 @@ void ThreadPool::pause() {
   std::cout << "paused" << std::endl;
 }
 
-void ThreadPool::unpause() {
+void
+ThreadPool::unpause()
+{
   std::unique_lock<BlueMutex> ul(_lock);
   std::cout << "unpause" << std::endl;
   _pause--;
   _cond.notify_all();
 }
 
-void ThreadPool::drain(WorkQueue_ *wq) {
+void
+ThreadPool::drain(WorkQueue_* wq)
+{
 
   std::unique_lock<BlueMutex> ul(_lock);
   std::cout << "draining" << std::endl;
@@ -114,23 +155,25 @@ void ThreadPool::drain(WorkQueue_ *wq) {
   _draining--;
 }
 
-void ThreadPool::worker(WorkThread *wt) {
+void
+ThreadPool::worker(WorkThread* wt)
+{
   std::unique_lock<BlueMutex> ul(_lock);
   std::stringstream ss;
-  ss << name << " thread " << (void *)pthread_self();
+  ss << name << " thread " << (void*)pthread_self();
   auto hb = hbmap->add_worker(ss.str(), pthread_self());
   while (!_stop) {
     join_old_threads();
     if (work_queues.empty()) {
       std::cout << "worker no work queues" << std::endl;
     } else if (!_pause) {
-      WorkQueue_ *wq;
+      WorkQueue_* wq;
       int tries = 2 * work_queues.size();
       bool did = false;
       while (tries--) {
         next_work_queue %= work_queues.size();
         wq = work_queues[next_work_queue++];
-        void *item = wq->_void_dequeue();
+        void* item = wq->_void_dequeue();
         if (item) {
           processing++;
           std::cout << "worker wq " << wq->name << " start processing " << item

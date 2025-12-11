@@ -1,21 +1,27 @@
+#include <pthread.h>
+
 #include "synchronization/condition_variable.h"
 #include "synchronization/mutex.h"
 #include "thread/thread.h"
-#include <pthread.h>
 
 class TestThread : public ThreadBase {
 public:
-  int &i;
-  condition_variable &cond;
-  BlueMutex &mutex;
-  TestThread(int &i, condition_variable &cond, BlueMutex &mutex)
-      : i(i), cond(cond), mutex(mutex) {}
+  int& i;
+  condition_variable& cond;
+  BlueMutex& mutex;
+
+  TestThread(int& i, condition_variable& cond, BlueMutex& mutex) :
+    i(i), cond(cond), mutex(mutex)
+  {}
+
   // 此函数负责对外部的变量进行修改
-  void *entry() override {
+  void*
+  entry() override
+  {
     while (i < 10) {
       mutex.lock();
-      std::cout << "TestThread【" << pthread_self() << "】 i: " << " " << i
-                << std::endl;
+      std::cout << "TestThread【" << pthread_self() << "】 i: "
+                << " " << i << std::endl;
       i++;
       cond.notify_one();
       mutex.unlock();
@@ -24,13 +30,15 @@ public:
   }
 };
 
-int main() {
+int
+main()
+{
   BlueMutex mutex("test_cond", true);
   condition_variable cond(&mutex);
   int i = 0;
   TestThread thread(i, cond, mutex);
   thread.create("test_thread");
-  
+
   std::unique_lock<BlueMutex> lock(mutex);
   cond.wait(lock, [&]() {
     if (i < 10) {

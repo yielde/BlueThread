@@ -1,14 +1,18 @@
-#include "synchronization/mutex.h"
-#include "synchronization/mutex_recursive.h"
+#include <unistd.h>
+
 #include <chrono>
 #include <functional>
 #include <iostream>
 #include <thread>
-#include <unistd.h>
+
+#include "synchronization/mutex.h"
+#include "synchronization/mutex_recursive.h"
 
 using namespace std;
 
-static void test_lock() {
+static void
+test_lock()
+{
   BlueMutex mutex("test_mutex", true);
   mutex.lock();
   cout << "locked" << endl;
@@ -16,7 +20,9 @@ static void test_lock() {
   cout << "unlocked" << endl;
 }
 
-static void test_lock_recursive(mutex_recursive &mutex_recursive) {
+static void
+test_lock_recursive(mutex_recursive& mutex_recursive)
+{
   pthread_t tid = pthread_self();
   mutex_recursive.lock();
   cout << "locked 1 by thread " << tid << endl;
@@ -28,7 +34,9 @@ static void test_lock_recursive(mutex_recursive &mutex_recursive) {
   cout << "unlocked 1 by thread " << tid << endl;
 }
 
-static void test_lock_recursive_thread() {
+static void
+test_lock_recursive_thread()
+{
   pthread_t tid = pthread_self();
   mutex_recursive mutex_recursive;
   thread t(test_lock_recursive, std::ref(mutex_recursive));
@@ -39,25 +47,27 @@ static void test_lock_recursive_thread() {
   t.join();
 }
 
-static int test_no_lock_thread(int count) {
+static int
+test_no_lock_thread(int count)
+{
   thread t;
   BlueMutex mutex("test_lock_thread", false);
   // 将操作分解为读取-修改-写入，增加竞争概率
   t = thread(
-      [](int &count) {
+      [](int& count) {
         for (int i = 0; i < 1000; i++) {
           int temp = count; // 读取
-          temp = temp + 1;  // 修改（故意分解操作）
-          count = temp;     // 写入
+          temp = temp + 1; // 修改（故意分解操作）
+          count = temp; // 写入
         }
       },
       std::ref(count));
   thread t2 = thread(
-      [](int &count) {
+      [](int& count) {
         for (int i = 0; i < 1000; i++) {
           int temp = count; // 读取
-          temp = temp - 1;  // 修改（故意分解操作）
-          count = temp;     // 写入
+          temp = temp - 1; // 修改（故意分解操作）
+          count = temp; // 写入
         }
       },
       std::ref(count));
@@ -66,28 +76,30 @@ static int test_no_lock_thread(int count) {
   return count;
 }
 
-static int test_lock_thread(int count) {
+static int
+test_lock_thread(int count)
+{
   thread t;
   BlueMutex mutex("test_lock_thread", false);
   // 将操作分解为读取-修改-写入，增加竞争概率
   t = thread(
-      [&mutex](int &count) {
+      [&mutex](int& count) {
         for (int i = 0; i < 1000; i++) {
           mutex.lock();
           int temp = count; // 读取
-          temp = temp + 1;  // 修改（故意分解操作）
-          count = temp;     // 写入
+          temp = temp + 1; // 修改（故意分解操作）
+          count = temp; // 写入
           mutex.unlock();
         }
       },
       std::ref(count));
   thread t2 = thread(
-      [&mutex](int &count) {
+      [&mutex](int& count) {
         for (int i = 0; i < 1000; i++) {
           mutex.lock();
           int temp = count; // 读取
-          temp = temp - 1;  // 修改（故意分解操作）
-          count = temp;     // 写入
+          temp = temp - 1; // 修改（故意分解操作）
+          count = temp; // 写入
           mutex.unlock();
         }
       },
@@ -98,7 +110,9 @@ static int test_lock_thread(int count) {
   return count;
 }
 
-static void test_lock_thread_main() {
+static void
+test_lock_thread_main()
+{
   int wrong_count = 0;
   int total_tests = 100;
   int initial_value = 100;
@@ -126,7 +140,9 @@ static void test_lock_thread_main() {
        << endl;
 }
 
-static void test_no_lock_thread_main() {
+static void
+test_no_lock_thread_main()
+{
   int wrong_count = 0;
   int total_tests = 100;
   int initial_value = 100;
@@ -154,7 +170,9 @@ static void test_no_lock_thread_main() {
        << endl;
 }
 
-void test_deadlock() {
+void
+test_deadlock()
+{
   BlueMutex mutex1("mutex1", true);
   BlueMutex mutex2("mutex2", true);
   mutex1.lock();
@@ -166,7 +184,9 @@ void test_deadlock() {
   cout << "unlocked mutex1 and mutex2" << endl;
 }
 
-void test_deadlock_thread(BlueMutex &mutex, BlueMutex &will_mutex) {
+void
+test_deadlock_thread(BlueMutex& mutex, BlueMutex& will_mutex)
+{
   mutex.lock();
   cout << "locked mutex by thread " << pthread_self() << " " << mutex.get_name()
        << endl;
@@ -182,7 +202,9 @@ void test_deadlock_thread(BlueMutex &mutex, BlueMutex &will_mutex) {
        << will_mutex.get_name() << endl;
 }
 
-void test_deadlock_thread_main() {
+void
+test_deadlock_thread_main()
+{
   BlueMutex mutex1("mutex0", true);
   BlueMutex mutex2("mutex1", true);
   BlueMutex mutex3("mutex2", true);
@@ -194,7 +216,9 @@ void test_deadlock_thread_main() {
   t3.join();
 }
 
-int main(int argc, char **argv) {
+int
+main(int argc, char** argv)
+{
   //   test_lock();
   // test_lock_recursive_thread();
   // test_lock_thread(100);

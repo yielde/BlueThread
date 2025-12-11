@@ -1,11 +1,13 @@
 #include "utils.h"
+
+#include <pthread.h>
+
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <map>
 #include <ostream>
-#include <pthread.h>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -13,21 +15,23 @@
 #define MAX_LOCKS 4096
 
 static char lock_ids_bitmap[MAX_LOCKS / 8]; // bit set to 1 means lock_id is
-                                            // free, 0 means lock_id is used
+    // free, 0 means lock_id is used
 static bool lock_ids_bitmap_initialized = false;
 static int last_free_lock_id = -1;
 static pthread_mutex_t lockdep_mutex = PTHREAD_MUTEX_INITIALIZER;
 static std::unordered_map<std::string, int> name_to_id_map;
 static std::map<int, std::string> id_to_name_map;
 static std::map<int, int> lock_ref; // reference count of the lock
-static std::unordered_map<pthread_t, std::map<int, BackTrace *>> held_locks;
+static std::unordered_map<pthread_t, std::map<int, BackTrace*>> held_locks;
 static char lock_tree[MAX_LOCKS]
                      [MAX_LOCKS / 8]; // lock_tree[a][b] means b taken after a
-static BackTrace *lock_tree_backtrace[MAX_LOCKS][MAX_LOCKS];
+static BackTrace* lock_tree_backtrace[MAX_LOCKS][MAX_LOCKS];
 static unsigned current_max_id;
 
 // Initialize lock_ids_bitmap to all 1s (all IDs free) on first use
-static void init_lock_ids_bitmap() {
+static void
+init_lock_ids_bitmap()
+{
   if (!lock_ids_bitmap_initialized) {
     memset(lock_ids_bitmap, 0xFF, sizeof(lock_ids_bitmap));
     lock_ids_bitmap_initialized = true;
@@ -35,7 +39,9 @@ static void init_lock_ids_bitmap() {
 }
 
 // be called with a mutex held
-int lockdep_get_free_id() {
+int
+lockdep_get_free_id()
+{
   init_lock_ids_bitmap();
   if ((last_free_lock_id >= 0) && (lock_ids_bitmap[last_free_lock_id / 8] &
                                    (1 << (last_free_lock_id % 8)))) {
@@ -59,7 +65,9 @@ int lockdep_get_free_id() {
   return -1; // can't find a free lock_id
 }
 
-static int _lockdep_register(const std::string &name) {
+static int
+_lockdep_register(const std::string& name)
+{
   int id = -1;
   std::unordered_map<std::string, int>::iterator p =
       name_to_id_map.find(name.c_str());
@@ -111,13 +119,18 @@ does_follow(5, 1)
 
 最终返回 true（路径：5 -> 4 -> 3 -> 2 -> 1）
 */
-static bool does_follow(int a, int b) {
-  std::ostream &os = std::cout;
+static bool
+does_follow(int a, int b)
+{
+  std::ostream& os = std::cout;
   if (lock_tree[a][b / 8] & (1 << (b % 8))) {
-    os << "----------------------------" << "\n";
-    os << "dependency exists " << "【" << a << ": " << id_to_name_map[a] << "】"
+    os << "----------------------------"
+       << "\n";
+    os << "dependency exists "
+       << "【" << a << ": " << id_to_name_map[a] << "】"
        << " -> "
-       << "【" << b << ": " << id_to_name_map[b] << "】" << "\n";
+       << "【" << b << ": " << id_to_name_map[b] << "】"
+       << "\n";
     if (lock_tree_backtrace[a][b]) {
       lock_tree_backtrace[a][b]->print(os);
     }
@@ -127,10 +140,13 @@ static bool does_follow(int a, int b) {
 
   for (unsigned i = 0; i < current_max_id; i++) {
     if ((lock_tree[a][i / 8] & (1 << (i % 8))) && does_follow(i, b)) {
-      os << "intermediate dependency exists " << "【" << a << ": "
-         << id_to_name_map[a] << "】" << " -> "
-         << "【" << i << ": " << id_to_name_map[i] << "】" << " -> "
-         << "【" << b << ": " << id_to_name_map[b] << "】" << "\n";
+      os << "intermediate dependency exists "
+         << "【" << a << ": " << id_to_name_map[a] << "】"
+         << " -> "
+         << "【" << i << ": " << id_to_name_map[i] << "】"
+         << " -> "
+         << "【" << b << ": " << id_to_name_map[b] << "】"
+         << "\n";
       if (lock_tree_backtrace[a][i]) {
         lock_tree_backtrace[a][i]->print(os);
       }
@@ -142,7 +158,9 @@ static bool does_follow(int a, int b) {
   return false;
 }
 
-int lockdep_will_lock(const std::string &name, int id) {
+int
+lockdep_will_lock(const std::string& name, int id)
+{
 
   pthread_t tid = pthread_self();
   pthread_mutex_lock(&lockdep_mutex);
@@ -156,12 +174,12 @@ int lockdep_will_lock(const std::string &name, int id) {
 
   std::cout << "Lock: " << name << " with id: " << id
             << " will lock by thread: " << tid << std::endl;
-  auto &lockid_backtrace_map = held_locks[tid];
+  auto& lockid_backtrace_map = held_locks[tid];
   for (auto p = lockid_backtrace_map.begin(); p != lockid_backtrace_map.end();
        p++) {
     if (p->first == id) {
       // lock is already held by the thread
-      std::ostream &os = std::cout;
+      std::ostream& os = std::cout;
       os << "\n";
       os << "Lock: " << name << " with id: " << id
          << " is already held by thread: " << tid << std::endl;
@@ -176,7 +194,7 @@ int lockdep_will_lock(const std::string &name, int id) {
       abort();
     } else if (!(lock_tree[p->first][id / 8] & (1 << (id % 8)))) {
       // add new lockdep
-      std::ostream &os = std::cout;
+      std::ostream& os = std::cout;
       // Check for potential deadlock: if there's a path from 'id' to
       // 'p->first', then adding 'p->first' -> 'id' would create a cycle
       if (does_follow(id, p->first)) {
@@ -204,7 +222,7 @@ int lockdep_will_lock(const std::string &name, int id) {
         // std::cout << std::endl;
         abort();
       } else {
-        BackTrace *bt = new BackTrace(0);
+        BackTrace* bt = new BackTrace(0);
         lock_tree[p->first][id / 8] |= (1 << (id % 8));
         lock_tree_backtrace[p->first][id] = bt;
 
@@ -221,7 +239,9 @@ int lockdep_will_lock(const std::string &name, int id) {
   return id;
 }
 
-int lockdep_register(const std::string &name) {
+int
+lockdep_register(const std::string& name)
+{
   int id = -1;
   pthread_mutex_lock(&lockdep_mutex);
   id = _lockdep_register(name);
@@ -233,7 +253,9 @@ int lockdep_register(const std::string &name) {
   return id;
 }
 
-int lockdep_locked(const std::string &name, int id) {
+int
+lockdep_locked(const std::string& name, int id)
+{
   pthread_t tid = pthread_self();
   pthread_mutex_lock(&lockdep_mutex);
   if (id < 0) {
@@ -250,7 +272,9 @@ int lockdep_locked(const std::string &name, int id) {
   return id;
 }
 
-void lockdep_unregister(int id) {
+void
+lockdep_unregister(int id)
+{
   if (id < 0) {
     return;
   }
@@ -263,10 +287,10 @@ void lockdep_unregister(int id) {
     name = p->second;
   }
 
-  int &ref = lock_ref[id];
+  int& ref = lock_ref[id];
   if (--ref == 0) {
     if (p != id_to_name_map.end()) {
-      memset((void *)&lock_tree[id][0], 0, MAX_LOCKS / 8);
+      memset((void*)&lock_tree[id][0], 0, MAX_LOCKS / 8);
       for (unsigned i = 0; i < current_max_id; i++) {
         delete lock_tree_backtrace[id][i];
         lock_tree_backtrace[id][i] = nullptr;
@@ -289,7 +313,9 @@ void lockdep_unregister(int id) {
   pthread_mutex_unlock(&lockdep_mutex);
 }
 
-int lockdep_will_unlock(const std::string &name, int id) {
+int
+lockdep_will_unlock(const std::string& name, int id)
+{
   pthread_t tid = pthread_self();
   if (id < 0) {
     ASSERT(id == -1);

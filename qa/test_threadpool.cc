@@ -1,5 +1,3 @@
-#include "thread/threadpool.h"
-#include "thread/heartbeat.h"
 #include <chrono>
 #include <iostream>
 #include <list>
@@ -7,12 +5,16 @@
 #include <thread>
 #include <vector>
 
+#include "thread/heartbeat.h"
+#include "thread/threadpool.h"
+
 using namespace std;
 
 // 测试用的工作项类型
 struct TestTask {
   int id;
   int value;
+
   TestTask(int id, int value) : id(id), value(value) {}
 };
 
@@ -23,13 +25,17 @@ public:
   vector<int> processed_ids;
   int total_processed = 0;
 
-  void add_processed(int id) {
+  void
+  add_processed(int id)
+  {
     lock_guard<mutex> lock(mtx);
     processed_ids.push_back(id);
     total_processed++;
   }
 
-  void print_results() {
+  void
+  print_results()
+  {
     lock_guard<mutex> lock(mtx);
     cout << "Total processed: " << total_processed << endl;
     cout << "Processed IDs: ";
@@ -45,34 +51,47 @@ public:
 class TestWorkQueue : public ThreadPool::WorkQueueVal<TestTask> {
 private:
   list<TestTask> queue;
-  TaskResult *result;
-  BlueMutex queue_lock;  // 自己的锁，用于保护队列操作
+  TaskResult* result;
+  BlueMutex queue_lock; // 自己的锁，用于保护队列操作
 
 public:
-  TestWorkQueue(const string &name, ThreadPool::duration grace,
-                ThreadPool::duration suicide_grace, TaskResult *result)
-      : ThreadPool::WorkQueueVal<TestTask>(name, grace, suicide_grace),
-        result(result), queue_lock(name + "::queue_lock", true) {}
+  TestWorkQueue(
+      const string& name,
+      ThreadPool::duration grace,
+      ThreadPool::duration suicide_grace,
+      TaskResult* result) :
+    ThreadPool::WorkQueueVal<TestTask>(name, grace, suicide_grace),
+    result(result),
+    queue_lock(name + "::queue_lock", true)
+  {}
 
-  void _enqueue(TestTask task) override {
+  void
+  _enqueue(TestTask task) override
+  {
     lock_guard<BlueMutex> lock(queue_lock);
     queue.push_back(task);
     cout << "Enqueued task id=" << task.id << " value=" << task.value << endl;
   }
 
-  void _enqueue_front(TestTask task) override {
+  void
+  _enqueue_front(TestTask task) override
+  {
     lock_guard<BlueMutex> lock(queue_lock);
     queue.push_front(task);
     cout << "Enqueued front task id=" << task.id << " value=" << task.value
          << endl;
   }
 
-  bool _empty() override {
+  bool
+  _empty() override
+  {
     lock_guard<BlueMutex> lock(queue_lock);
     return queue.empty();
   }
 
-  TestTask _dequeue() override {
+  TestTask
+  _dequeue() override
+  {
     lock_guard<BlueMutex> lock(queue_lock);
     ASSERT(!queue.empty());
     TestTask task = queue.front();
@@ -80,7 +99,9 @@ public:
     return task;
   }
 
-  void _process(TestTask task, ThreadPool::TPHandle &handle) override {
+  void
+  _process(TestTask task, ThreadPool::TPHandle& handle) override
+  {
     cout << "Processing task id=" << task.id << " value=" << task.value
          << " in thread " << pthread_self() << endl;
     // 模拟一些处理工作
@@ -93,18 +114,24 @@ public:
     }
   }
 
-  void _process_finish(TestTask task) override {
+  void
+  _process_finish(TestTask task) override
+  {
     cout << "Finished processing task id=" << task.id << endl;
   }
 
-  void _clear() override {
+  void
+  _clear() override
+  {
     lock_guard<BlueMutex> lock(queue_lock);
     queue.clear();
   }
 };
 
 // 测试基本功能
-void test_basic_workqueue() {
+void
+test_basic_workqueue()
+{
   cout << "\n=== Test Basic WorkQueue ===" << endl;
 
   HeartbeatMap hbmap("test_pool");
@@ -140,15 +167,16 @@ void test_basic_workqueue() {
 }
 
 // 测试前端入队
-void test_enqueue_front() {
+void
+test_enqueue_front()
+{
   cout << "\n=== Test Enqueue Front ===" << endl;
 
   HeartbeatMap hbmap("test_pool2");
   ThreadPool::duration grace = chrono::seconds(5);
   ThreadPool::duration suicide_grace = chrono::seconds(10);
 
-  ThreadPool pool(&hbmap, "test_pool2", "test_thread2", 2, grace,
-                  suicide_grace);
+  ThreadPool pool(&hbmap, "test_pool2", "test_thread2", 2, grace, suicide_grace);
 
   TaskResult result;
   TestWorkQueue workqueue("test_queue2", grace, suicide_grace, &result);
@@ -179,15 +207,16 @@ void test_enqueue_front() {
 }
 
 // 测试暂停和恢复
-void test_pause_unpause() {
+void
+test_pause_unpause()
+{
   cout << "\n=== Test Pause/Unpause ===" << endl;
 
   HeartbeatMap hbmap("test_pool3");
   ThreadPool::duration grace = chrono::seconds(5);
   ThreadPool::duration suicide_grace = chrono::seconds(10);
 
-  ThreadPool pool(&hbmap, "test_pool3", "test_thread3", 2, grace,
-                  suicide_grace);
+  ThreadPool pool(&hbmap, "test_pool3", "test_thread3", 2, grace, suicide_grace);
 
   TaskResult result;
   TestWorkQueue workqueue("test_queue3", grace, suicide_grace, &result);
@@ -231,15 +260,16 @@ void test_pause_unpause() {
 }
 
 // 测试多线程并发
-void test_concurrent_tasks() {
+void
+test_concurrent_tasks()
+{
   cout << "\n=== Test Concurrent Tasks ===" << endl;
 
   HeartbeatMap hbmap("test_pool4");
   ThreadPool::duration grace = chrono::seconds(5);
   ThreadPool::duration suicide_grace = chrono::seconds(10);
 
-  ThreadPool pool(&hbmap, "test_pool4", "test_thread4", 4, grace,
-                  suicide_grace);
+  ThreadPool pool(&hbmap, "test_pool4", "test_thread4", 4, grace, suicide_grace);
 
   TaskResult result;
   TestWorkQueue workqueue("test_queue4", grace, suicide_grace, &result);
@@ -262,7 +292,7 @@ void test_concurrent_tasks() {
     });
   }
 
-  for (auto &t : threads) {
+  for (auto& t : threads) {
     t.join();
   }
 
@@ -275,7 +305,9 @@ void test_concurrent_tasks() {
   cout << "Test Concurrent Tasks completed\n" << endl;
 }
 
-int main(int argc, char **argv) {
+int
+main(int argc, char** argv)
+{
   cout << "Starting ThreadPool and WorkQueueVal tests..." << endl;
 
   test_basic_workqueue();
@@ -286,4 +318,3 @@ int main(int argc, char **argv) {
   cout << "All tests completed!" << endl;
   return 0;
 }
-
