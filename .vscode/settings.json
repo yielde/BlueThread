@@ -18,6 +18,11 @@
 
   // clangd 配置（用于代码补全和诊断，不用于格式化）
   "clangd.arguments": [],
+  // 配置 compile_commands.json 路径（如果在 build 目录）
+  // clangd 会自动在项目根目录查找，如果文件在 build/ 目录，取消下面的注释
+  "clangd.compileFlags": {
+    "compilationDatabasePath": "build"
+  },
 
   // 禁用 C/C++ 扩展以避免冲突
   "C_Cpp.intelliSenseEngine": "Disabled",

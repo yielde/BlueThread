@@ -179,7 +179,7 @@ public:
     void
     queue(T item)
     {
-      std::lock_guard<BlueMutex> l(_lock);
+      std::lock_guard<BlueMutex> l(pool->_lock);
       _enqueue(item);
       pool->_cond.notify_one();
     }
@@ -187,7 +187,7 @@ public:
     void
     queue_front(T item)
     {
-      std::lock_guard<BlueMutex> l(_lock);
+      std::lock_guard<BlueMutex> l(pool->_lock);
       _enqueue_front(item);
       pool->_cond.notify_one();
     }

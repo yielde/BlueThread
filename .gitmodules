@@ -1,0 +1,4 @@
+[submodule "third_party/googletest"]
+	path = third_party/googletest
+	url = https://github.com/ceph/googletest
+	branch = ceph-release-1.7.x

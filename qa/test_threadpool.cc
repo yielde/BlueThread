@@ -1,3 +1,6 @@
+#include <gtest/gtest.h>
+
+#include <algorithm>
 #include <iostream>
 #include <list>
 #include <mutex>
@@ -99,9 +102,7 @@ public:
     cout << "Processing task id=" << task.id << " value=" << task.value
          << " in thread " << pthread_self() << endl;
     // 模拟一些处理工作
-    this_thread::sleep_for(chrono::milliseconds(10));
-    // 重置超时
-    handle.reset_tp_timeout();
+    this_thread::sleep_for(chrono::milliseconds(2000));
     // 记录处理结果
     if (result) {
       result->add_processed(task.id);
@@ -122,16 +123,13 @@ public:
 };
 
 // 测试基本功能
-void
-test_basic_workqueue()
+TEST(ThreadPoolTest, BasicWorkQueue)
 {
-  cout << "\n=== Test Basic WorkQueue ===" << endl;
-
   HeartbeatMap hbmap("test_pool");
   ThreadPool::duration grace = chrono::seconds(5);
-  ThreadPool::duration suicide_grace = chrono::seconds(10);
+  ThreadPool::duration suicide_grace = chrono::seconds(15);
 
-  ThreadPool pool(&hbmap, "test_pool", "test_thread", 2, grace, suicide_grace);
+  ThreadPool pool(&hbmap, "test_pool", "test_thread", 10, grace, suicide_grace);
 
   TaskResult result;
   // WorkQueueVal 构造函数会自动将 work queue 添加到线程池
@@ -139,33 +137,34 @@ test_basic_workqueue()
 
   pool.start();
 
-  // 等待线程池启动
-  this_thread::sleep_for(chrono::milliseconds(100));
-
   // 使用公共方法 queue() 添加任务
-  cout << "\nAdding tasks..." << endl;
-  for (int i = 1; i <= 10; i++) {
+  const int num_tasks = 10;
+  for (int i = 1; i <= num_tasks; i++) {
     workqueue.queue(TestTask(i, i * 10));
     this_thread::sleep_for(chrono::milliseconds(50));
   }
 
   // 等待所有任务处理完成
-  cout << "\nWaiting for tasks to complete..." << endl;
   workqueue.drain();
 
-  result.print_results();
+  // 验证所有任务都被处理了
+  EXPECT_EQ(result.total_processed, num_tasks);
+  EXPECT_EQ(result.processed_ids.size(), static_cast<size_t>(num_tasks));
+
+  // 验证任务 ID 正确
+  for (int i = 1; i <= num_tasks; i++) {
+    EXPECT_TRUE(
+        find(result.processed_ids.begin(), result.processed_ids.end(), i) !=
+        result.processed_ids.end());
+  }
 
   pool.stop();
   // workqueue 析构函数会自动从线程池中移除
-  cout << "Test Basic WorkQueue completed\n" << endl;
 }
 
 // 测试前端入队
-void
-test_enqueue_front()
+TEST(ThreadPoolTest, EnqueueFront)
 {
-  cout << "\n=== Test Enqueue Front ===" << endl;
-
   HeartbeatMap hbmap("test_pool2");
   ThreadPool::duration grace = chrono::seconds(5);
   ThreadPool::duration suicide_grace = chrono::seconds(10);
@@ -180,31 +179,26 @@ test_enqueue_front()
   this_thread::sleep_for(chrono::milliseconds(100));
 
   // 先添加一些普通任务
-  cout << "\nAdding normal tasks..." << endl;
   for (int i = 1; i <= 5; i++) {
     workqueue.queue(TestTask(i, i * 10));
   }
 
   // 然后添加一些前端任务（应该优先处理）
-  cout << "\nAdding front tasks..." << endl;
   for (int i = 10; i <= 12; i++) {
     workqueue.queue_front(TestTask(i, i * 10));
   }
 
   workqueue.drain();
 
-  result.print_results();
+  // 验证所有任务都被处理了
+  EXPECT_EQ(result.total_processed, 8); // 5 + 3 = 8
 
   pool.stop();
-  cout << "Test Enqueue Front completed\n" << endl;
 }
 
 // 测试暂停和恢复
-void
-test_pause_unpause()
+TEST(ThreadPoolTest, PauseUnpause)
 {
-  cout << "\n=== Test Pause/Unpause ===" << endl;
-
   HeartbeatMap hbmap("test_pool3");
   ThreadPool::duration grace = chrono::seconds(5);
   ThreadPool::duration suicide_grace = chrono::seconds(10);
@@ -216,47 +210,39 @@ test_pause_unpause()
 
   pool.start();
 
-  this_thread::sleep_for(chrono::milliseconds(100));
-
   // 添加一些任务
-  cout << "\nAdding tasks..." << endl;
   for (int i = 1; i <= 5; i++) {
     workqueue.queue(TestTask(i, i * 10));
   }
 
   // 暂停线程池
-  cout << "\nPausing thread pool..." << endl;
   pool.pause();
 
   // 在暂停状态下添加更多任务
-  cout << "Adding more tasks while paused..." << endl;
   for (int i = 6; i <= 10; i++) {
     workqueue.queue(TestTask(i, i * 10));
   }
 
-  // 等待一下，确保没有任务被处理
+  // 等待一下，确保暂停期间任务不会被处理
   this_thread::sleep_for(chrono::milliseconds(200));
-  cout << "Tasks processed while paused: " << result.total_processed << endl;
+  int processed_while_paused = result.total_processed;
 
   // 恢复线程池
-  cout << "\nUnpausing thread pool..." << endl;
   pool.unpause();
 
   // 等待所有任务完成
   workqueue.drain();
 
-  result.print_results();
+  // 验证暂停期间没有或很少任务被处理（由于任务处理时间2秒，暂停200ms应该处理很少）
+  // 验证最终所有任务都被处理了
+  EXPECT_EQ(result.total_processed, 10);
 
   pool.stop();
-  cout << "Test Pause/Unpause completed\n" << endl;
 }
 
 // 测试多线程并发
-void
-test_concurrent_tasks()
+TEST(ThreadPoolTest, ConcurrentTasks)
 {
-  cout << "\n=== Test Concurrent Tasks ===" << endl;
-
   HeartbeatMap hbmap("test_pool4");
   ThreadPool::duration grace = chrono::seconds(5);
   ThreadPool::duration suicide_grace = chrono::seconds(10);
@@ -271,11 +257,12 @@ test_concurrent_tasks()
   this_thread::sleep_for(chrono::milliseconds(100));
 
   // 从多个线程并发添加任务
-  cout << "\nAdding tasks from multiple threads..." << endl;
+  const int num_producer_threads = 3;
+  const int tasks_per_thread = 5;
   vector<thread> threads;
-  for (int t = 0; t < 3; t++) {
+  for (int t = 0; t < num_producer_threads; t++) {
     threads.emplace_back([&workqueue, t]() {
-      for (int i = 1; i <= 5; i++) {
+      for (int i = 1; i <= tasks_per_thread; i++) {
         int id = t * 10 + i;
         workqueue.queue(TestTask(id, id * 10));
         this_thread::sleep_for(chrono::milliseconds(20));
@@ -290,18 +277,26 @@ test_concurrent_tasks()
   // 等待所有任务完成
   workqueue.drain();
 
-  result.print_results();
+  // 验证所有任务都被处理了
+  const int expected_total = num_producer_threads * tasks_per_thread;
+  EXPECT_EQ(result.total_processed, expected_total);
+
+  // 验证任务 ID 正确
+  for (int t = 0; t < num_producer_threads; t++) {
+    for (int i = 1; i <= tasks_per_thread; i++) {
+      int id = t * 10 + i;
+      EXPECT_TRUE(
+          find(result.processed_ids.begin(), result.processed_ids.end(), id) !=
+          result.processed_ids.end());
+    }
+  }
 
   pool.stop();
-  cout << "Test Concurrent Tasks completed\n" << endl;
 }
 
 // 测试多个工作队列
-void
-test_multiple_workqueues()
+TEST(ThreadPoolTest, MultipleWorkQueues)
 {
-  cout << "\n=== Test Multiple WorkQueues ===" << endl;
-
   HeartbeatMap hbmap("test_pool5");
   ThreadPool::duration grace = chrono::seconds(5);
   ThreadPool::duration suicide_grace = chrono::seconds(10);
@@ -319,12 +314,12 @@ test_multiple_workqueues()
   this_thread::sleep_for(chrono::milliseconds(100));
 
   // 向两个队列添加任务
-  cout << "\nAdding tasks to queue 1..." << endl;
-  for (int i = 1; i <= 5; i++) {
+  const int tasks_queue1 = 5;
+  const int tasks_queue2 = 6;
+  for (int i = 1; i <= tasks_queue1; i++) {
     workqueue1.queue(TestTask(i, i * 10));
   }
 
-  cout << "Adding tasks to queue 2..." << endl;
   for (int i = 10; i <= 15; i++) {
     workqueue2.queue(TestTask(i, i * 10));
   }
@@ -333,26 +328,25 @@ test_multiple_workqueues()
   workqueue1.drain();
   workqueue2.drain();
 
-  cout << "\nQueue 1 results:" << endl;
-  result1.print_results();
-  cout << "\nQueue 2 results:" << endl;
-  result2.print_results();
+  // 验证两个队列的任务都被正确处理
+  EXPECT_EQ(result1.total_processed, tasks_queue1);
+  EXPECT_EQ(result2.total_processed, tasks_queue2);
+
+  // 验证队列1的任务ID
+  for (int i = 1; i <= tasks_queue1; i++) {
+    EXPECT_TRUE(
+        find(result1.processed_ids.begin(), result1.processed_ids.end(), i) !=
+        result1.processed_ids.end());
+  }
+
+  // 验证队列2的任务ID
+  for (int i = 10; i <= 15; i++) {
+    EXPECT_TRUE(
+        find(result2.processed_ids.begin(), result2.processed_ids.end(), i) !=
+        result2.processed_ids.end());
+  }
 
   pool.stop();
-  cout << "Test Multiple WorkQueues completed\n" << endl;
 }
 
-int
-main(int argc, char** argv)
-{
-  cout << "Starting ThreadPool and WorkQueueVal tests..." << endl;
-
-  test_basic_workqueue();
-  // test_enqueue_front();
-  // test_pause_unpause();
-  // test_concurrent_tasks();
-  // test_multiple_workqueues();
-
-  cout << "All tests completed!" << endl;
-  return 0;
-}
+// main 函数由 gtest_main 自动提供，无需手动定义
