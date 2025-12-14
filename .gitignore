@@ -1,2 +1,4 @@
 .cache
 build
+.vscode/settings.json
+test.cc

@@ -60,7 +60,7 @@ public:
   std::cv_status
   wait_for(
       std::unique_lock<BlueMutex>& lock,
-      std::chrono::duration<Rep, Period>& awhile)
+      const std::chrono::duration<Rep, Period>& awhile)
   {
     auto when = std::chrono::steady_clock::now() + awhile;
     return _wait_until(lock.mutex(), when);

@@ -12,7 +12,7 @@
     "editor.formatOnType": false,
     "editor.formatOnPaste": false
   },
-  "clang-format.executable": "/usr/bin/clang-format-16",
+  "clang-format.executable": "/usr/bin/clang-format",
   "clang-format.style": "file",
   "clang-format.fallbackStyle": "Google",
 
@@ -32,5 +32,6 @@
   "editor.insertSpaces": true,
   "files.trimTrailingWhitespace": true,
   "files.insertFinalNewline": true,
-  "files.trimFinalNewlines": true
+  "files.trimFinalNewlines": true,
+  "editor.formatOnSave": true
 }
